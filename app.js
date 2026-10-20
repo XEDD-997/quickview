@@ -6,7 +6,7 @@
 (() => {
 'use strict';
 
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const FORMAT = 1;                       // highest data file format this version understands
 const MAIN_WH = { SPW002: 'Main warehouse', SPW003: 'IGMH store' };
 const CANCELLED = new Set(['deleted', 'reversed', 'rejected', 'draft - rejected']);
@@ -225,7 +225,7 @@ function buildModel(pack) {
 
   // status sheet
   const ss = new Map();
-  for (const s of statusRows) if (s.pr) ss.set(s.pr, { status: s.status, cpCode: s.cp_code, vendor: s.vendor, completion: s.completion });
+  for (const s of statusRows) if (s.pr) ss.set(s.pr, { status: s.status, cpCode: s.cp_code, vendor: s.vendor, completion: s.completion, title: s.title || null });
 
   // PR lines
   const byPr = new Map(), prsByCode = new Map(), prsByPo = new Map();
@@ -283,12 +283,12 @@ function buildModel(pack) {
     const pbu = (lines.find((l) => l.pbu) || {}).pbu || null;
     const o = {
       pr, prDate, po: pos.join(', ') || null, pos, poDate, supplier, pbu, unit: unitOf(pbu), statuses: statuses.join(', ') || null, statusSet: new Set(statuses),
-      stage, cpStatus: s ? s.status : null, cpCode: s ? s.cpCode : null, completion: s ? s.completion : null, lines: lines.length,
+      stage, cpStatus: s ? s.status : null, cpCode: s ? s.cpCode : null, title: s ? s.title : null, completion: s ? s.completion : null, lines: lines.length,
       firstItem: (lines.find((l) => l.description) || {}).description || null, orderedQty: ordered > 0 ? ordered : null,
       receivedQty: got > 0 ? got : null, lastReceipt, expected: minOf(lines.map((l) => l.expected)), currency, foreignVendor: foreign,
       isOpen: !(stage === 'Received' || stage === 'Cancelled' || finished),
     };
-    o.search = [pr, supplier, s && s.cpCode, ...pos, ...lines.flatMap((l) => [l.code, l.description])].filter(Boolean).join(' ').toLowerCase();
+    o.search = [pr, supplier, s && s.cpCode, s && s.title, ...pos, ...lines.flatMap((l) => [l.code, l.description])].filter(Boolean).join(' ').toLowerCase();
     orders.set(pr, o);
   }
   const orderList = [...orders.values()].sort((a, b) => (b.prDate || '').localeCompare(a.prDate || ''));
@@ -445,6 +445,7 @@ function orderRow(o, extra = '') {
   const meta2 = ['PR ' + show(o.prDate), o.poDate ? 'PO ' + show(o.poDate) : null, o.orderedQty != null ? `${fmtQty(o.receivedQty || 0)} of ${fmtQty(o.orderedQty)} received` : null].filter(Boolean).join(' · ');
   return `<button class="row" data-go="#/o/${encodeURIComponent(o.pr)}">
     <div class="main"><div class="t1 strong">${esc([o.pr, o.po].filter(Boolean).join('  ·  '))}</div>
+    ${o.title ? `<div class="t strong">${esc(o.title)}</div>` : ''}
     <div class="t">${esc(o.firstItem || '-')}${o.lines > 1 ? ` <span class="muted">(+${o.lines - 1} more)</span>` : ''}</div>
     <div class="m">${esc([o.unit !== '-' ? o.unit : null, o.supplier || 'Supplier not set yet'].filter(Boolean).join(' · '))}</div><div class="m">${esc(meta2)}</div></div>
     <div class="end">${pill(o.stage, stageTone(o.stage))}${o.cpStatus ? pill(o.cpStatus, 'info') : ''}${extra}</div></button>`;
@@ -706,7 +707,7 @@ function viewOrders() {
     h += `<div class="chips"><button type="button" class="chip on" data-act="norule">${esc(r ? r.title : s.rule)} ${icon('x')}</button></div>`;
     h += `<p class="muted small" style="margin:-4px 2px 8px">Notice list · tap the chip to see all orders</p>`;
   } else {
-    h += searchBox('ordq', s.q, 'PR or PO number, supplier, item…');
+    h += searchBox('ordq', s.q, 'PR or PO number, title, supplier, item…');
     h += `<label class="toggle-row"><span class="switch"><input type="checkbox" id="openonly" ${s.open ? 'checked' : ''}><span></span></span>Open only</label>`;
     const followed = followedPrs();
     h += `<div class="chips">${RULES.map((r) => { const n = noticeOrders(r.id, followed).filter(unitMatch).length; return `<button type="button" class="chip" data-act="rule" data-v="${r.id}">${esc(r.title)}<span class="c">${fmtQty(n)}</span></button>`; }).join('')}</div>`;
@@ -735,6 +736,7 @@ function viewOrder(number) {
   if (!others.length && o.pos.length) others = [...new Set(o.pos.flatMap((p) => [...(M.prsByPo.get(p) || [])]))].filter((x) => x !== pr).sort();
 
   let head = `<div class="pills" style="margin:0 0 8px">${pill(o.stage, stageTone(o.stage))}${o.cpStatus ? pill(o.cpStatus, 'info') : ''}${pill(o.foreignVendor ? 'Foreign' : 'Local')}${o.unit !== '-' ? pill(o.unit) : ''}</div>`;
+  if (o.title) head += `<p style="margin:0 0 10px;font-weight:650;line-height:1.35">${esc(o.title)}</p>`;
   head += kv('PR', esc(o.pr)) + kv('PO', esc(o.po || 'Not yet')) + kv('Supplier', esc(o.supplier || '-')) + kv('Unit (PBU)', esc(o.pbu || '-')) + kv('PR date', show(o.prDate)) + kv('PO date', show(o.poDate));
   if (o.expected) head += kv('Expected', show(o.expected));
   head += kv('Last receipt', show(o.lastReceipt)) + kv('Entution status', esc(o.statuses || '-'));
