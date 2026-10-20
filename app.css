@@ -2,7 +2,7 @@
   --bg: #F5F5F7; --surface: #FFFFFF; --raised: #F0F2F1; --text: #1D1D1F; --muted: #6E6E73; --line: rgba(0,0,0,.08);
   --primary: #18373C; --on-primary: #FFFFFF; --accent: #8DB22E; --accent-soft: #DDEBB5;
   --good: #6E8F1E; --warn: #C77F12; --bad: #D13438; --info: #2B87A1;
-  --tab: rgba(255,255,255,.88); --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 18px rgba(0,0,0,.05);
+  --tab: rgba(255,255,255,.88); --tab-solid: #FFFFFF; --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 18px rgba(0,0,0,.05);
   --radius: 22px; --radius-sm: 16px;
   --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
 }
@@ -11,7 +11,7 @@
     --bg: #071A1D; --surface: #0E282C; --raised: #123137; --text: #EDF5F2; --muted: #88A39E; --line: rgba(255,255,255,.08);
     --primary: #B6D357; --on-primary: #071A1D; --accent: #B6D357; --accent-soft: #2A4A26;
     --good: #B6D357; --warn: #E39A2D; --bad: #E5484D; --info: #69C3DC;
-    --tab: rgba(11,34,38,.9); --shadow: none;
+    --tab: rgba(11,34,38,.9); --tab-solid: #0B2226; --shadow: none;
   }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -23,6 +23,11 @@ body {
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 #app { min-height: 100vh; min-height: 100dvh; }
+/* the strip behind the iPhone status bar (clock, battery): lists scroll under it instead of showing through */
+body::before {
+  content: ""; position: fixed; left: 0; right: 0; top: -120px; height: calc(120px + var(--safe-t)); z-index: 30; pointer-events: none;
+  background: color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+}
 #view {
   padding: calc(var(--safe-t) + 12px) 16px calc(var(--safe-b) + 92px);
   max-width: 720px; margin: 0 auto; outline: none;
@@ -169,6 +174,9 @@ button.row:active { background: var(--raised); }
   padding: 6px 4px calc(var(--safe-b) + 4px); background: var(--tab); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
   border-top: 1px solid var(--line);
 }
+/* iPhone home-screen apps sometimes leave a gap under a bar fixed to the bottom (and the list shows through it
+   while scrolling): the bar's background carries on below it, so nothing can show there */
+#tabs::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 240px; background: var(--tab-solid); pointer-events: none; }
 #tabs button {
   flex: 1; border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 0;
   color: var(--muted); font-size: 11px; font-weight: 600; max-width: 110px;

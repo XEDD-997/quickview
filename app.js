@@ -6,7 +6,7 @@
 (() => {
 'use strict';
 
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 const FORMAT = 1;                       // highest data file format this version understands
 const MAIN_WH = { SPW002: 'Main warehouse', SPW003: 'IGMH store' };
 const CANCELLED = new Set(['deleted', 'reversed', 'rejected', 'draft - rejected']);

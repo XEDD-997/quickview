@@ -1,6 +1,6 @@
 /* Keeps Quick View working offline. Only the app's own files are cached here; the data file is kept
    by the page itself in this phone's storage. A new version of this file = a new version of the app. */
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 const CACHE = 'quickview-' + VERSION;
 const FILES = ['./', 'index.html', 'app.css', 'app.js', 'manifest.webmanifest',
   'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/favicon.png'];
