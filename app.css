@@ -174,7 +174,8 @@ button.row:active { background: var(--raised); }
 /* ------------------------------------------------------------ tab bar */
 #tabs {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: space-around;
-  padding: 6px 4px calc(var(--safe-b) + 4px); background: var(--tab); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  /* the buttons sit just above the iPhone's home bar instead of a full home-bar height higher */
+  padding: 6px 4px max(6px, calc(var(--safe-b) - 20px)); background: var(--tab); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
   border-top: 1px solid var(--line);
 }
 /* iPhone home-screen apps sometimes leave a gap under a bar fixed to the bottom (and the list shows through it
