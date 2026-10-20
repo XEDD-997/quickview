@@ -28,12 +28,9 @@ body::before {
   content: ""; position: fixed; left: 0; right: 0; top: -120px; height: calc(120px + var(--safe-t)); z-index: 30; pointer-events: none;
   background: color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
 }
-/* the view is the scrolling part (fixed to the screen), so the tab bar and the status-bar strip never move */
 #view {
-  position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow-y: auto; overflow-x: hidden;
-  -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
-  padding: calc(var(--safe-t) + 12px) max(16px, calc((100% - 688px) / 2)) calc(var(--safe-b) + 92px);
-  outline: none;
+  padding: calc(var(--safe-t) + 12px) 16px calc(var(--safe-b) + 92px);
+  max-width: 720px; margin: 0 auto; outline: none;
 }
 
 /* ------------------------------------------------------------ headings */
@@ -175,15 +172,8 @@ button.row:active { background: var(--raised); }
 #tabs {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: space-around;
   /* the buttons sit just above the iPhone's home bar instead of a full home-bar height higher */
-  padding: 6px 4px max(6px, calc(var(--safe-b) - 20px)); background: var(--tab); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  padding: 6px 4px max(6px, calc(var(--safe-b) - 20px)); background: var(--tab); will-change: transform; -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
   border-top: 1px solid var(--line);
-}
-/* iPhone home-screen apps place "bottom: 0" above the home-bar area (the page's own viewport stops short of the
-   screen's edge), which left a dark band under the tab bar. Where the browser knows the full screen height (lvh),
-   the bar and the scrolling view are measured from the top of the screen instead, so the bar sits on the screen's edge. */
-@supports (height: 100lvh) {
-  #tabs { bottom: auto; top: 100lvh; transform: translateY(-100%); }
-  #view { bottom: auto; height: 100lvh; }
 }
 /* iPhone home-screen apps sometimes leave a gap under a bar fixed to the bottom (and the list shows through it
    while scrolling): the bar's background carries on below it, so nothing can show there */

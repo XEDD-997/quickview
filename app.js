@@ -6,7 +6,7 @@
 (() => {
 'use strict';
 
-const VERSION = '1.0.6';
+const VERSION = '1.0.7';
 const FORMAT = 1;                       // highest data file format this version understands
 const MAIN_WH = { SPW002: 'Main warehouse', SPW003: 'IGMH store' };
 const CANCELLED = new Set(['deleted', 'reversed', 'rejected', 'draft - rejected']);
@@ -422,12 +422,26 @@ function render() {
     console.error(e);
     v.innerHTML = `<div class="card"><div class="card-head"><div class="h"><h3>Something went wrong</h3><p>${esc(e.message || e)}</p></div></div><button class="btn secondary" data-go="#/data">Go to Data</button></div>`;
   }
-  requestAnimationFrame(() => { $view().scrollTop = scrollMemo.get(key) || 0; });
+  requestAnimationFrame(() => window.scrollTo(0, scrollMemo.get(key) || 0));
 }
 
-// the page itself never scrolls: the view does (iPhone home-screen apps move bars fixed to the page while it scrolls)
-const $view = () => document.getElementById('view');
-$view().addEventListener('scroll', () => { scrollMemo.set(location.hash || '#/today', $view().scrollTop); }, { passive: true });
+window.addEventListener('scroll', () => { scrollMemo.set(location.hash || '#/today', window.scrollY); }, { passive: true });
+
+// iPhone home-screen apps: while the page scrolls, the area iPhone shows grows and shrinks under the tab bar.
+// Keep the bar on the bottom edge of what is really visible (the 'visual viewport'), measured as it changes.
+(() => {
+  const vv = window.visualViewport, tabs = document.getElementById('tabs');
+  if (!vv || !tabs) return;
+  let raf = 0;
+  const pin = () => {
+    raf = 0;
+    const shift = Math.round(vv.offsetTop + vv.height - window.innerHeight);
+    tabs.style.transform = shift > 0 ? `translateY(${shift}px)` : '';
+  };
+  const ask = () => { if (!raf) raf = requestAnimationFrame(pin); };
+  vv.addEventListener('resize', ask); vv.addEventListener('scroll', ask); window.addEventListener('scroll', ask, { passive: true });
+  window.addEventListener('resize', ask); ask();
+})();
 window.addEventListener('hashchange', () => { sessionStorage.setItem('qv.inapp', '1'); render(); });
 
 // ------------------------------------------------------------------ shared bits of the screens
@@ -812,7 +826,9 @@ function viewData() {
     <button class="btn" data-act="save" style="margin-top:8px">Save</button>`, { sub: 'Order notices and what\'s shown' });
 
   if (M) h += card('Remove data', `<button class="btn danger" data-act="clearall">Remove all data from this phone</button>`);
-  h += card('About', `<p style="margin:0;font-weight:650">StatePharma Quick View ${VERSION}</p><p class="muted" style="margin:4px 0 12px">Works offline. Your data stays on this phone; this page can't send it anywhere.</p>
+  const vv = window.visualViewport, probe = (v) => { const d = document.createElement('div'); d.style.cssText = 'position:fixed;top:0;height:' + v + ';visibility:hidden'; document.body.appendChild(d); const x = Math.round(d.getBoundingClientRect().height); d.remove(); return x; };
+  const screenInfo = `Screen ${screen.height} · window ${window.innerHeight} · visible ${vv ? Math.round(vv.height) : '-'} · lvh ${probe('100lvh')} · svh ${probe('100svh')} · bottom inset ${probe('env(safe-area-inset-bottom)')}`;
+  h += card('About', `<p style="margin:0;font-weight:650">StatePharma Quick View ${VERSION}</p><p class="muted" style="margin:2px 0 0;font-size:12px">${esc(screenInfo)}</p><p class="muted" style="margin:4px 0 12px">Works offline. Your data stays on this phone; this page can't send it anywhere.</p>
     <button class="btn secondary" data-act="checkupdate">${icon('refresh')}Check for a new version</button>`);
   return h;
 }
@@ -902,7 +918,7 @@ document.addEventListener('click', (e) => {
   const a = e.target.closest('[data-act]');
   if (a && ACTIONS[a.dataset.act]) { e.preventDefault(); ACTIONS[a.dataset.act](a); return; }
   const g = e.target.closest('[data-go]');
-  if (g) { e.preventDefault(); if (g.closest('#tabs') && route().name === g.dataset.go.slice(2)) { $view().scrollTo({ top: 0, behavior: 'smooth' }); return; } go(g.dataset.go); }
+  if (g) { e.preventDefault(); if (g.closest('#tabs') && route().name === g.dataset.go.slice(2)) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; } go(g.dataset.go); }
 });
 let typing;
 document.addEventListener('input', (e) => {
