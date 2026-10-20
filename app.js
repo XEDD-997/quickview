@@ -6,7 +6,7 @@
 (() => {
 'use strict';
 
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 const FORMAT = 1;                       // highest data file format this version understands
 const MAIN_WH = { SPW002: 'Main warehouse', SPW003: 'IGMH store' };
 const CANCELLED = new Set(['deleted', 'reversed', 'rejected', 'draft - rejected']);
@@ -422,10 +422,12 @@ function render() {
     console.error(e);
     v.innerHTML = `<div class="card"><div class="card-head"><div class="h"><h3>Something went wrong</h3><p>${esc(e.message || e)}</p></div></div><button class="btn secondary" data-go="#/data">Go to Data</button></div>`;
   }
-  requestAnimationFrame(() => window.scrollTo(0, scrollMemo.get(key) || 0));
+  requestAnimationFrame(() => { $view().scrollTop = scrollMemo.get(key) || 0; });
 }
 
-window.addEventListener('scroll', () => { scrollMemo.set(location.hash || '#/today', window.scrollY); }, { passive: true });
+// the page itself never scrolls: the view does (iPhone home-screen apps move bars fixed to the page while it scrolls)
+const $view = () => document.getElementById('view');
+$view().addEventListener('scroll', () => { scrollMemo.set(location.hash || '#/today', $view().scrollTop); }, { passive: true });
 window.addEventListener('hashchange', () => { sessionStorage.setItem('qv.inapp', '1'); render(); });
 
 // ------------------------------------------------------------------ shared bits of the screens
@@ -900,7 +902,7 @@ document.addEventListener('click', (e) => {
   const a = e.target.closest('[data-act]');
   if (a && ACTIONS[a.dataset.act]) { e.preventDefault(); ACTIONS[a.dataset.act](a); return; }
   const g = e.target.closest('[data-go]');
-  if (g) { e.preventDefault(); if (g.closest('#tabs') && route().name === g.dataset.go.slice(2)) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; } go(g.dataset.go); }
+  if (g) { e.preventDefault(); if (g.closest('#tabs') && route().name === g.dataset.go.slice(2)) { $view().scrollTo({ top: 0, behavior: 'smooth' }); return; } go(g.dataset.go); }
 });
 let typing;
 document.addEventListener('input', (e) => {
