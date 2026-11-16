@@ -6,7 +6,7 @@
 (() => {
 'use strict';
 
-const VERSION = '1.0.7';
+const VERSION = '1.0.8';
 const FORMAT = 1;                       // highest data file format this version understands
 const MAIN_WH = { SPW002: 'Main warehouse', SPW003: 'IGMH store' };
 const CANCELLED = new Set(['deleted', 'reversed', 'rejected', 'draft - rejected']);
@@ -26,6 +26,8 @@ const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
 const mf = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtQty = (v) => (v == null || Number.isNaN(v) ? '-' : nf.format(v));
 const fmtMoney = (v) => (v == null ? '-' : 'MVR ' + mf.format(v));
+// an amount in the PO's own currency (USD, EUR ...); MVR when the report gives none
+const fmtCur = (v, cur) => (v == null ? '-' : (String(cur || '').trim().toUpperCase() || 'MVR') + ' ' + mf.format(v));
 const fmtPct = (part, whole) => (whole > 0 ? Math.round((part * 100) / whole) + '%' : '-');
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function today() { return new Date(Date.now() + 5 * 3600e3).toISOString().slice(0, 10); }   // Maldives
@@ -281,11 +283,22 @@ function buildModel(pack) {
     const lastReceipt = maxOf(withPo.map((l) => recLast.get(l.po + '|' + (l.code || ''))));
     const finished = statuses.length > 0 && statuses.every((x) => FINISHED.has(x) || CANCELLED.has(x));
     const pbu = (lines.find((l) => l.pbu) || {}).pbu || null;
+    // PO value: the PO lines' amounts added up, per PO (a line listed twice in the report is counted once)
+    const pv = new Map(), pvSeen = new Set();
+    for (const l of withPo) {
+      const a = +l.amount;
+      if (!(a > 0)) continue;
+      const k = [l.po, l.code, l.po_qty, a].join('|');
+      if (pvSeen.has(k)) continue;
+      pvSeen.add(k); pv.set(l.po, (pv.get(l.po) || 0) + a);
+    }
+    const poValues = pos.filter((p) => pv.has(p)).map((p) => ({ po: p, value: pv.get(p) }));
     const o = {
       pr, prDate, po: pos.join(', ') || null, pos, poDate, supplier, pbu, unit: unitOf(pbu), statuses: statuses.join(', ') || null, statusSet: new Set(statuses),
       stage, cpStatus: s ? s.status : null, cpCode: s ? s.cpCode : null, title: s ? s.title : null, completion: s ? s.completion : null, lines: lines.length,
       firstItem: (lines.find((l) => l.description) || {}).description || null, orderedQty: ordered > 0 ? ordered : null,
       receivedQty: got > 0 ? got : null, lastReceipt, expected: minOf(lines.map((l) => l.expected)), currency, foreignVendor: foreign,
+      poValues, poValue: poValues.length ? poValues.reduce((a, x) => a + x.value, 0) : null,
       isOpen: !(stage === 'Received' || stage === 'Cancelled' || finished),
     };
     o.search = [pr, supplier, s && s.cpCode, s && s.title, ...pos, ...lines.flatMap((l) => [l.code, l.description])].filter(Boolean).join(' ').toLowerCase();
@@ -459,11 +472,12 @@ function noData() {
 function kv(k, v, tone) { return `<div class="kv"><span class="k">${esc(k)}</span><span class="v"${tone ? ` style="color:var(--${tone})"` : ''}>${v}</span></div>`; }
 function orderRow(o, extra = '') {
   const meta2 = ['PR ' + show(o.prDate), o.poDate ? 'PO ' + show(o.poDate) : null, o.orderedQty != null ? `${fmtQty(o.receivedQty || 0)} of ${fmtQty(o.orderedQty)} received` : null].filter(Boolean).join(' · ');
+  const val = settings.showPrices && o.poValue ? `<div class="m">PO value ${esc(fmtCur(o.poValue, o.currency))}</div>` : '';
   return `<button class="row" data-go="#/o/${encodeURIComponent(o.pr)}">
     <div class="main"><div class="t1 strong">${esc([o.pr, o.po].filter(Boolean).join('  ·  '))}</div>
     ${o.title ? `<div class="t strong">${esc(o.title)}</div>` : ''}
     <div class="t">${esc(o.firstItem || '-')}${o.lines > 1 ? ` <span class="muted">(+${o.lines - 1} more)</span>` : ''}</div>
-    <div class="m">${esc([o.unit !== '-' ? o.unit : null, o.supplier || 'Supplier not set yet'].filter(Boolean).join(' · '))}</div><div class="m">${esc(meta2)}</div></div>
+    <div class="m">${esc([o.unit !== '-' ? o.unit : null, o.supplier || 'Supplier not set yet'].filter(Boolean).join(' · '))}</div><div class="m">${esc(meta2)}</div>${val}</div>
     <div class="end">${pill(o.stage, stageTone(o.stage))}${o.cpStatus ? pill(o.cpStatus, 'info') : ''}${extra}</div></button>`;
 }
 
@@ -746,7 +760,7 @@ function viewOrder(number) {
   const lines = (M.byPr.get(pr) || []).map((l) => {
     const it = M.items.get(l.code);
     return { code: l.code, description: l.description || (it && it.description), uom: it && it.uom, reqQty: l.req_qty, po: l.po, poQty: l.po_qty,
-      expected: l.expected, amount: settings.showPrices ? l.amount : null, received: l.po ? M.received(l.po, l.code) : null };
+      expected: l.expected, amount: settings.showPrices ? l.amount : null, currency: l.currency || o.currency, received: l.po ? M.received(l.po, l.code) : null };
   });
   const recs = o.pos.flatMap((p) => M.recByPo.get(p) || []).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   if (!others.length && o.pos.length) others = [...new Set(o.pos.flatMap((p) => [...(M.prsByPo.get(p) || [])]))].filter((x) => x !== pr).sort();
@@ -754,6 +768,10 @@ function viewOrder(number) {
   let head = `<div class="pills" style="margin:0 0 8px">${pill(o.stage, stageTone(o.stage))}${o.cpStatus ? pill(o.cpStatus, 'info') : ''}${pill(o.foreignVendor ? 'Foreign' : 'Local')}${o.unit !== '-' ? pill(o.unit) : ''}</div>`;
   if (o.title) head += `<p style="margin:0 0 10px;font-weight:650;line-height:1.35">${esc(o.title)}</p>`;
   head += kv('PR', esc(o.pr)) + kv('PO', esc(o.po || 'Not yet')) + kv('Supplier', esc(o.supplier || '-')) + kv('Unit (PBU)', esc(o.pbu || '-')) + kv('PR date', show(o.prDate)) + kv('PO date', show(o.poDate));
+  if (settings.showPrices && o.poValues.length) {
+    head += o.poValues.length === 1 ? kv('PO value', esc(fmtCur(o.poValues[0].value, o.currency)))
+      : o.poValues.map((x) => kv('PO value ' + x.po, esc(fmtCur(x.value, o.currency)))).join('') + kv('PO value, all', esc(fmtCur(o.poValue, o.currency)));
+  }
   if (o.expected) head += kv('Expected', show(o.expected));
   head += kv('Last receipt', show(o.lastReceipt)) + kv('Entution status', esc(o.statuses || '-'));
   if (o.cpCode) head += kv('Status Sheet code', esc(o.cpCode));
@@ -765,7 +783,7 @@ function viewOrder(number) {
   }
   let h = topbar(number) + card(null, head);
   h += card('Items', `<div class="rows">${lines.slice(0, 300).map((l) => `<button class="row" ${l.code ? `data-go="#/p/${encodeURIComponent(l.code)}"` : ''}><div class="main">
-      <div class="t">${esc(l.description || l.code || '-')}</div><div class="m">${esc([l.code, l.uom, l.po].filter(Boolean).join(' · '))}</div>${l.amount > 0 ? `<div class="m">${fmtMoney(l.amount)}</div>` : ''}</div>
+      <div class="t">${esc(l.description || l.code || '-')}</div><div class="m">${esc([l.code, l.uom, l.po].filter(Boolean).join(' · '))}</div>${l.amount > 0 ? `<div class="m">${esc(fmtCur(l.amount, l.currency))}</div>` : ''}</div>
       <div class="end">${l.po ? `<span class="num">${fmtQty(l.received || 0)} / ${fmtQty(l.poQty)}</span><span class="muted small">received</span>` : `<span class="num">${fmtQty(l.reqQty)}</span><span class="muted small">requested</span>`}</div></button>`).join('')}</div>
       ${lines.length > 300 ? '<p class="muted small">First 300 lines shown.</p>' : ''}`, { trail: pill(String(lines.length)) });
   h += card('Receipts', recs.length ? `<div class="rows">${recs.slice(0, 200).map((r) => {
