@@ -60,8 +60,9 @@ const pill = (text, tone = 'neutral') => `<span class="pill p-${tone}">${esc(tex
 function prKey(s) {
   if (!s) return null;
   const t = String(s).toUpperCase().trim();
-  let m = t.match(/PR\s*[-/_]?\s*(\d+)/);
-  if (m) return 'PR-' + String(+m[1]).padStart(5, '0');
+  // PR-02579, PR-11-26-00021 and PR-26-000006: every group of digits is kept (newer numbers as Entution writes them)
+  let m = t.match(/PR\s*[-/_]?\s*(\d+(?:\s*-\s*\d+)*)/);
+  if (m) { const g = m[1].match(/\d+/g); return g.length > 1 ? 'PR-' + g.join('-') : 'PR-' + String(+g[0]).padStart(5, '0'); }
   m = t.match(/^(\d+)(\.0+)?$/);
   return m ? 'PR-' + String(+m[1]).padStart(5, '0') : null;
 }
